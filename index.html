@@ -12,7 +12,7 @@
       <img src="image/shakechanrupica.png" class="card-bg" alt="Card Background" />
       <div class="card-content">
         <div class="card-title" id="cardTitle">TOROpass Wallet</div>
-        <div class="card-balance" id="balance">￥0</div>
+        <div class="card-balance" id="balance">¥0</div>
       </div>
     </div>
 
@@ -48,7 +48,7 @@
     }
 
     try {
-      const response = await fetch(`https://pass-api.torosaba.net/api/history/${encodeURIComponent(username)}`);
+      const response = await fetch(`https://toropassproxy.s-salmon.net/api/history/${encodeURIComponent(username)}`);
       if (!response.ok) throw new Error('不明なプレイヤー または 履歴なし');
       const data = await response.json();
 
@@ -58,7 +58,7 @@
         return;
       }
 
-      balanceDisplay.textContent = `￥${data[0].balance}`;
+      balanceDisplay.textContent = `¥${data[0].balance}`;
       document.getElementById('cardTitle').textContent = `${username}'s TOROpass`;
 
       data.forEach((transaction) => {
