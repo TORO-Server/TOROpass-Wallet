@@ -1,23 +1,112 @@
 body {
-  margin: 0;
+  margin: 10px;
   font-family: "Helvetica Neue", Arial, sans-serif;
   background: linear-gradient(135deg, #e9e9f3, #f7f7fa);
   color: #222;
 }
 
 .wallet {
-  max-width: 700px;
-  margin: 30px auto;
-  padding: 0 10px;
+  max-width: 500px;
+  margin: auto;
+}
+.toropassimage {
+  text-align: center;
+}
+.toropassimage img {
+  max-width: 102%;
+  margin-left: -1.4%  ;
 }
 
+.login{
+  max-width: 500px;
+  height: 55px;
+  margin: 5px auto;
+}
+.login input {
+  width: 33%;
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.login button {
+  width: 20%;
+  padding: 10px;
+  background-color: #007aff;
+  border: none;
+  color: white;
+  font-size: 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.userinfo{
+  max-width: 500px;
+  display: flex;
+  margin: auto;
+}
+.playerdata {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  height: 50px;
+  margin: auto;
+  padding: 5px;
+  background-color: #f8f8f8;
+  border-radius: 12px;
+}
+.playerdata img{
+  height: 50px;
+  width: 50px;
+}
+.playerdata p{
+  padding-left: 5px;
+  font-size: 25px;
+  line-height: 0;
+}
+
+.logout{
+  margin-left: auto;
+  margin-right: 5px;
+  display: flex;
+  height: 95%;
+}
+
+.logout button{
+  width: 100%;
+  padding: 10px;
+  background-color: green;
+  border: none;
+  color: white;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.logout img{
+  height: 100%;
+  width: auto;
+}
+
+.menu-button img{
+  height: 100%;
+  width: auto;
+}
+
+h2{
+  line-height: 1;
+  margin-bottom: 5px;
+}
 .card {
-  position: relative;
+  display: flex;
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   margin-bottom: 20px;
-  background-color: #000;
+  background-color: white;
 }
 
 .card-bg {
@@ -35,18 +124,40 @@ body {
   position: relative;
   z-index: 2;
   padding: 20px;
-  color: white;
-  text-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+  padding-left: 15px;
+  color: black;
+  line-height: 0.9;
 }
 
 .card-title {
-  font-size: 1.5rem;
-  font-weight: bold;
+  font-size: 1.3rem;
 }
 
 .card-balance {
   font-size: 2.2rem;
   margin-top: 10px;
+}
+
+.card-expire {
+  font-size: 1.2rem;
+  color: #666;
+  margin-top: 7px;
+}
+
+.charge-button {
+  margin-left: auto;
+  margin-top: 30px;;
+  margin-right: 20px;
+}
+.charge-button button {
+  background-color: rgb(13, 14, 14);
+  color: white;
+  border: none;
+  padding: 7px 15px;
+  border-radius: 20px;
+  font-size: 20px;
+  width: 100%;
+  font-family: Arial, sans-serif;
 }
 
 .input-box {
@@ -142,4 +253,100 @@ body {
 
 .history-details {
   flex-grow: 1;
+}
+
+.modal {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  width: 80%;
+  max-width: 450px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #007aff;
+}
+
+.close-modal {
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.modal-body label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.modal-body input {
+  width: 95%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.modal-body button {
+  width: 100%;
+  padding: 10px;
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.modal-body button:hover {
+  background-color: #005bb5;
+}
+
+.menu-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.modal-thumb {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.modal-thumb:hover {
+  background-color: #f0f0f0;
+}
+
+.modal-thumb img {
+  width: 48px;
+  height: 30px;
+  margin-right: 10px;
+  border-radius: 4px;
 }

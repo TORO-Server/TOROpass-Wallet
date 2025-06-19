@@ -7,164 +7,543 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <div class="login" id="login">
+    <input type="text" id="playername" placeholder="プレイヤー名を入力" value=""/>
+    <input type="password" id="password" name="password" autocomplete="current-password" placeholder="パスワードを入力" value=""/>
+    <button onclick="login()">Login</button>
+    <button onclick="question()" style="width: 10%; background-color: green;">?</button>
+  </div>
+
+  <div class="userinfo hidden" id="userinfo">
+    <div class="playerdata">
+      <img src="https://www.mc-heads.net/head/rupirupi_" alt="Player Icon" id="playerIcon" />
+      <p id="playerName">rupirupi_さん</p>
+      <div class="logout">
+        <button class="menu-button" onclick="openMenuModal()"><img src="image/settings.png"></button>
+        <button onclick="logout()"><img src="image/logout.png"></button>
+      </div>
+    </div>
+  </div>
+  <div class="error hidden" id="error" style="text-align: center;"></div>
   <div class="wallet">
+    <div class="toropassimage">
+      <img src="image/toropass.png" alt="TOROpass Logo" />
+    </div>
+    
+    <div class="history-details">
+
     <div class="card">
-      <img src="image/shakechanrupica.png" class="card-bg" alt="Card Background" />
       <div class="card-content">
-        <div class="card-title" id="cardTitle">TOROpass Wallet</div>
-        <div class="card-balance" id="balance">¥0</div>
+        <div class="card-title" id="cardTitle">残高</div>
+        <div class="card-balance" id="balance">¥---</div>
+      </div>
+      <div class="charge-button">
+        <button>チャージ</button>
+      </div>
+    </div>
+    <div class="card hidden" id="cardInfo">
+      <div class="card-content">
+        <div class="card-title" id="passTitle">通学定期券</div>
+        <div class="card-balance" id="pass" style="font-weight: bold; margin: 7px auto;">高槻駅-大阪駅</div>
+        <div class="card-expire" id="passexpire">有効期限: 2025/06/20</div>
       </div>
     </div>
 
-    <div class="input-box">
-      <input
-        type="text"
-        id="username"
-        placeholder="プレイヤー名を入力"
-        class="input-field"
-      />
-      <button onclick="fetchData()" class="button">履歴照会</button>
-      <div id="error" class="error hidden"></div>
-    </div>
-
+    <h2>最近のご利用</h2>
     <div class="history-list hidden" id="historyBox"></div>
   </div>
-
+</body>
 <script>
-  async function fetchData() {
-    const username = document.getElementById('username').value.trim();
-    const errorDiv = document.getElementById('error');
-    const historyBox = document.getElementById('historyBox');
-    const balanceDisplay = document.getElementById('balance');
+const serverUrl = 'http://localhost:5744';
 
-    errorDiv.classList.add('hidden');
-    historyBox.classList.add('hidden');
-    historyBox.innerHTML = '';
+async function fetchData() {
+  const username = document.getElementById('playername').value.trim();
+  const errorDiv = document.getElementById('error');
+  const historyBox = document.getElementById('historyBox');
+  const balanceDisplay = document.getElementById('balance');
 
-    if (!username) {
-      errorDiv.textContent = 'プレイヤー名を入力してください';
+  errorDiv.classList.add('hidden');
+  historyBox.classList.add('hidden');
+  historyBox.innerHTML = '';
+
+  if (!username) {
+    errorDiv.textContent = 'プレイヤー名を入力してください';
+    errorDiv.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${serverUrl}/api/history/${encodeURIComponent(username)}`);
+    if (!response.ok) throw new Error('不明なプレイヤー または 履歴なし');
+    const data = await response.json();
+
+    if (data.length === 0) {
+      errorDiv.textContent = '履歴なし';
       errorDiv.classList.remove('hidden');
       return;
     }
 
-    try {
-      const response = await fetch(`https://toropassproxy.s-salmon.net/api/history/${encodeURIComponent(username)}`);
-      if (!response.ok) throw new Error('不明なプレイヤー または 履歴なし');
-      const data = await response.json();
+    balanceDisplay.textContent = `¥${data[0].balance}`;
 
-      if (data.length === 0) {
-        errorDiv.textContent = '履歴なし';
+    data.forEach((transaction) => {
+      const fromRaw = transaction.from || '-';
+      const toRaw = transaction.to || '-';
+
+      let from = fromRaw;
+      let to = toRaw;
+      let label = from;
+      let iconSrc = 'image/Train.png';
+
+      if (from === 'Special::balanceAdjustment') {
+        label = '残高調整';
+        iconSrc = 'image/SetBalance.png';
+      } else if (from === 'Special::charge') {
+        label = 'チャージ';
+        iconSrc = 'image/Charge.png';
+      } else if (from === 'Special::autocharge') {
+        label = 'オートチャージ';
+        iconSrc = 'image/Charge.png';
+      } else if (from === 'Special::webcharge'){
+        label = 'Walletからチャージ';
+        iconSrc = 'image/Charge.png';
+      }
+      else if (from === 'Special::writecard') {
+        label = '定期券/フリーパス購入';
+        iconSrc = 'image/WriteCard.png';
+      } else if (from.startsWith('Shop::')) {
+        label = '物販:' + from.replace('Shop::', '');
+        iconSrc = 'image/Shop.png';
+      } else {
+        const match = from.match(/^(.*?)\[(.*?)\]$/);
+        if (match) {
+          const stationName = match[1];
+          const codes = match[2].split(/[,\s]+/).filter(code => code);
+          if (codes.length === 1) {
+            const company = getCompanyName(codes[0]);
+            label = company ? `${company} ${stationName}` : stationName;
+          } else {
+            label = stationName;
+          }
+        }
+      }
+
+      if (to && !to.startsWith('Special::') && !to.startsWith('Shop::')) {
+        const toMatch = to.match(/^(.*?)\[(.*?)\]$/);
+        if (toMatch) {
+          const stationName = toMatch[1];
+          const codes = toMatch[2].split(/[,\s]+/).filter(code => code);
+          if (codes.length === 1) {
+            const company = getCompanyName(codes[0]);
+            to = company ? `${company} ${stationName}` : stationName;
+          } else {
+            to = stationName;
+          }
+        }
+      }
+
+      const isSameStation = label === to;
+      const isTrainRide = !fromRaw.startsWith('Special::') && !fromRaw.startsWith('Shop::');
+      const distance = (isTrainRide && !isSameStation) ? Math.abs(transaction.amount) * 5 : null;
+      const arrow = isSameStation && label !== '-' ? ' (入場サービス)' : (label && to && to !== '-' ? ' → ' + to : '');
+
+      const isPassUsed = toRaw.includes('[[定期利用]]');
+      const amount = isPassUsed ? '定期利用' : (transaction.amount > 0 ? '+' : '') + transaction.amount + 'トロポ';
+      const color = isPassUsed ? 'blue' : (transaction.amount < 0 ? 'red' : 'green');
+
+      const time = new Date(transaction.timestamp * 1000).toLocaleString('ja-JP');
+
+      const card = document.createElement('div');
+      card.className = 'history-card';
+      card.innerHTML = `
+        <img src="${iconSrc}" class="history-icon" alt="icon" />
+        <div class="history-details">
+          <div class="history-header">
+            <div class="history-info">${label}${arrow}</div>
+            <div class="history-amount" style="color:${color}">${amount}</div>
+          </div>
+          <div class="history-time">${time}</div>
+          <div class="history-balance">
+            残高:${transaction.balance}トロポ${distance !== null ? `  移動:${distance}ブロック` : ''}
+          </div>
+        </div>
+      `;
+      historyBox.appendChild(card);
+    });
+
+    historyBox.classList.remove('hidden');
+  } catch (e) {
+    errorDiv.textContent = 'エラー: ' + e.message;
+    errorDiv.classList.remove('hidden');
+  }
+}
+
+function getCompanyName(code) {
+  const companyMap = {
+    '00': '鮭電',
+    '01': 'なめ急',
+    '02': '',
+    '03': '彩都市交通局',
+    '04': '厠市交通局',
+    '05': '森鉄',
+    '06': '東北鉄道',
+    '07': '小宮鉄道',
+    '08': '磯崎鉄道',
+    '09': 'NKRわんがん鉄道',
+    '10': 'RR'
+  };
+  return companyMap[code] || null;
+}
+
+function startDataRefresh() {
+  let lastScrollPosition = 0;
+  setInterval(async () => {
+    const userinfo = document.getElementById('userinfo');
+    if (!userinfo.classList.contains('hidden')) {
+      lastScrollPosition = document.documentElement.scrollTop || document.body.scrollTop;
+      await fetchData();
+      window.scrollTo(0, lastScrollPosition);
+    }
+  }, 5000);
+}
+
+function startCardInfoRefresh() {
+  setInterval(async () => {
+    const userinfo = document.getElementById('userinfo');
+    if (!userinfo.classList.contains('hidden')) {
+      try {
+        await getCardInfo();
+      } catch (e) {
+        console.error('getCardInfoエラー:', e.message);
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = '定期券情報の取得に失敗しました: ' + e.message;
         errorDiv.classList.remove('hidden');
+      }
+    }
+  }, 5000);
+}
+
+async function login() {
+  const playername = document.getElementById('playername').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const userinfo = document.getElementById('userinfo');
+  const loginDiv = document.getElementById('login');
+  const errorDiv = document.getElementById('error');
+
+  if (!playername || !password) {
+    errorDiv.textContent = 'すべてのフィールドを正しく入力してください。';
+    errorDiv.classList.remove('hidden');
+    return;
+  }
+
+  const data = { playername, password, chargebalance: 0 };
+
+  try {
+    const response = await fetch(`${serverUrl}/api/webcharge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      errorDiv.classList.add('hidden');
+      loginDiv.classList.add('hidden');
+      userinfo.classList.remove('hidden');
+      await fetchData();
+      await getCardInfo();
+      localStorage.setItem('playername', playername);
+      localStorage.setItem('password', password);
+    } else {
+      if (result.message === "Invalid charge amount") {
+        errorDiv.classList.add('hidden');
+        loginDiv.classList.add('hidden');
+        userinfo.classList.remove('hidden');
+        await fetchData();
+        await getCardInfo();
+        localStorage.setItem('playername', playername);
+        localStorage.setItem('password', password);
+        document.getElementById('playerIcon').src = `https://www.mc-heads.net/head/${playername}`;
+        document.getElementById('playerName').textContent = `${playername}さん`;
         return;
       }
 
-      balanceDisplay.textContent = `¥${data[0].balance}`;
-      document.getElementById('cardTitle').textContent = `${username}'s TOROpass`;
-
-      data.forEach((transaction) => {
-        const fromRaw = transaction.from || '-';
-        const toRaw = transaction.to || '-';
-
-        let from = fromRaw;
-        let to = toRaw;
-        let label = from;
-        let iconSrc = 'image/Train.png';
-        
-
-        if (from === 'Special::balanceAdjustment') {
-          label = '残高調整';
-          iconSrc = 'image/SetBalance.png';
-        } else if (from === 'Special::charge') {
-          label = 'チャージ';
-          iconSrc = 'image/Charge.png';
-        } else if (from === 'Special::autocharge') {
-          label = 'オートチャージ';
-          iconSrc = 'image/Charge.png';
-        } else if (from === 'Special::writecard') {
-          label = '定期券/フリーパス購入';
-          iconSrc = 'image/WriteCard.png';
-        } else if (from.startsWith('Shop::')) {
-          label = '物販:' + from.replace('Shop::', '');
-          iconSrc = 'image/Shop.png';
-        } else {
-          const match = from.match(/^(.*?)\[(.*?)\]$/);
-          if (match) {
-            const stationName = match[1];
-            const codes = match[2].split(/[,\s]+/).filter(code => code);
-            if (codes.length === 1) {
-              const company = getCompanyName(codes[0]);
-              label = company ? `${company} ${stationName}` : stationName;
-            } else {
-              label = stationName;
-            }
-          }
-        }
-
-        if (to && !to.startsWith('Special::') && !to.startsWith('Shop::')) {
-          const toMatch = to.match(/^(.*?)\[(.*?)\]$/);
-          if (toMatch) {
-            const stationName = toMatch[1];
-            const codes = toMatch[2].split(/[,\s]+/).filter(code => code);
-            if (codes.length === 1) {
-              const company = getCompanyName(codes[0]);
-              to = company ? `${company} ${stationName}` : stationName;
-            } else {
-              to = stationName;
-            }
-          }
-        }
-
-        const isSameStation = label === to;
-        const isTrainRide = !fromRaw.startsWith('Special::') && !fromRaw.startsWith('Shop::');
-        const distance = (isTrainRide && !isSameStation) ? Math.abs(transaction.amount) * 5 : null;
-        const arrow = isSameStation && label !== '-' ? ' (入場サービス)' : (label && to && to !== '-' ? ' → ' + to : '');
-
-        const amount = (transaction.amount > 0 ? '+' : '') + transaction.amount + 'トロポ';
-        const color = transaction.amount < 0 ? 'red' : 'green';
-        const time = new Date(transaction.timestamp * 1000).toLocaleString('ja-JP');
-
-        const card = document.createElement('div');
-        card.className = 'history-card';
-        card.innerHTML = `
-          <img src="${iconSrc}" class="history-icon" alt="icon" />
-          <div class="history-details">
-            <div class="history-header">
-              <div class="history-info">${label}${arrow}</div>
-              <div class="history-amount" style="color:${color}">${amount}</div>
-            </div>
-            <div class="history-time">${time}</div>
-            <div class="history-balance">
-              残高:${transaction.balance}トロポ${distance !== null ? `  移動:${distance}ブロック` : ''}
-            </div>
-          </div>
-        `;
-        historyBox.appendChild(card);
-      });
-
-      historyBox.classList.remove('hidden');
-    } catch (e) {
-      errorDiv.textContent = 'エラー: ' + e.message;
+      if (response.status === 401) {
+        errorDiv.textContent = 'パスワードが違います。';
+      } else if (response.status === 404) {
+        errorDiv.textContent = 'パスワードが設定されていないか、そのプレイヤーが見つかりません。';
+      } else if (response.status === 400 && result.message) {
+        errorDiv.textContent = result.message;
+      } else {
+        errorDiv.textContent = 'ログインに失敗しました。';
+      }
       errorDiv.classList.remove('hidden');
     }
+  } catch (e) {
+    errorDiv.textContent = 'エラー: ' + e.message;
+    errorDiv.classList.remove('hidden');
   }
+}
 
-  function getCompanyName(code) {
-    const companyMap = {
-      '00': '鮭電',
-      '01': 'なめ急',
-      '02': '',
-      '03': '彩都市交通局',
-      '04': '厠市交通局',
-      '05': '森鉄',
-      '06': '東北鉄道',
-      '07': '小宮鉄道',
-      '08': '磯崎鉄道',
-      '09': 'NKRわんがん鉄道',
-      '10': 'RR'
+
+
+async function logout() {
+  localStorage.removeItem('playername');
+  localStorage.removeItem('password');
+  window.location.reload();
+}
+
+async function question() {
+  const errorDiv = document.getElementById('error');
+  errorDiv.classList.remove('hidden');
+  errorDiv.textContent = 'Minecraftで/webchargeコマンドを入力するとパスワードを取得できます。';
+  errorDiv.style.color = 'black';
+}
+
+async function getCardInfo() {
+  const playername = document.getElementById('playername').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const data = { playername, password };
+  const cardInfoDiv = document.getElementById('cardInfo');
+  const passTitle = document.getElementById('passTitle');
+  const passBalance = document.getElementById('pass');
+  const passExpire = document.getElementById('passexpire');
+  const errorDiv = document.getElementById('error');
+  try {
+    const response = await fetch(`${serverUrl}/api/getcardinfo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await response.json();
+    if (response.ok && result.status === 'OK') {
+      if (result.cardInfo) {
+        cardInfoDiv.classList.remove('hidden');
+        const cardInfo = result.cardInfo;
+        const ticketType = String(cardInfo.ticketType);
+        const companyCode = String(cardInfo.companyCode);
+
+        switch (ticketType) {
+          case '1':
+            passTitle.textContent = '全線定期券';
+            passBalance.textContent = '';
+            break;
+          case '2':
+            passTitle.textContent = '通勤定期券';
+            passBalance.textContent = `${cardInfo.fromStation || ''}-${cardInfo.toStation || ''}`;
+            break;
+          case '3':
+            passTitle.textContent = '通学定期券';
+            passBalance.textContent = `${cardInfo.fromStation || ''}-${cardInfo.toStation || ''}`;
+            break;
+          case '4':
+            passTitle.textContent = 'フリーパス';
+            switch (companyCode) {
+              case '00':
+                passBalance.textContent = 'しゃけでん';
+                break;
+              case '01':
+                passBalance.textContent = 'なめ急電鉄';
+                break;
+              case '02':
+                passBalance.textContent = 'さっぽくエクスプレス';
+                break;
+              case '03':
+                passBalance.textContent = '彩都市交通局';
+                break;
+              case '04':
+                passBalance.textContent = '厠市交通局';
+                break;
+              case '05':
+                passBalance.textContent = '森鉄';
+                break;
+              case '06':
+                passBalance.textContent = '東北鉄道';
+                break;
+              case '07':
+                passBalance.textContent = '小宮鉄道';
+                break;
+              case '08':
+                passBalance.textContent = '磯崎鉄道';
+                break;
+              case '09':
+                passBalance.textContent = 'NKRわんがん鉄道';
+                break;
+              case '10':
+                passBalance.textContent = 'RR';
+                break;
+              case '99':
+                passBalance.textContent = 'TORO全線';
+                break;
+              default:
+                passBalance.textContent = '';
+            }
+            passBalance.textContent += '全線';
+            break;
+          default:
+            passTitle.textContent = '';
+            passBalance.textContent = '';
+        }
+        const now = new Date();
+        const expiry = new Date(cardInfo.expiryDate.replace(/-/g, '/'));
+        if (expiry >= now) {
+          passExpire.textContent = `有効期限: ${cardInfo.expiryDate}`;
+        } else {
+          passExpire.textContent = `有効期限: ${cardInfo.expiryDate} (期限切れ)`;
+        }
+      }
+    } else {
+      cardInfoDiv.classList.add('hidden');
+    }
+  } catch (error) {
+    return;
+  }
+}
+function openChargeModal() {
+  const userinfo = document.getElementById('userinfo');
+  if (userinfo.classList.contains('hidden')) {
+    const errorDiv = document.getElementById('error');
+    errorDiv.textContent = 'チャージするにはログインしてください。';
+    errorDiv.classList.remove('hidden');
+    return;
+  }
+  if (!document.querySelector('.modal')) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>TOROpass チャージ</h2>
+          <span class="close-modal">×</span>
+        </div>
+        <div class="modal-body">
+          <label for="chargeAmount">チャージ金額 (トロポ):</label>
+          <input type="number" id="chargeAmount" min="1" step="1" placeholder="チャージ額を入力">
+          <button onclick="charge()">チャージ</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeButton = modal.querySelector('.close-modal');
+    closeButton.onclick = function() {
+      console.log('クローズボタンがクリックされました');
+      modal.remove();
     };
-    return companyMap[code] || null;
   }
-</script>
+}
 
-</body>
+async function charge() {
+  const playername = document.getElementById('playername').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const chargeAmount = document.getElementById('chargeAmount').value;
+  const errorDiv = document.getElementById('error');
+  const modal = document.querySelector('.modal');
+
+  if (!chargeAmount || chargeAmount < 1) {
+    window.alert('チャージ金額は1円以上を入力してください。');
+    return;
+  }
+
+  const data = {
+    playername: playername,
+    password: password,
+    chargebalance: parseInt(chargeAmount)
+  };
+
+  try {
+    const response = await fetch(`${serverUrl}/api/webcharge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (response.ok) {
+      errorDiv.textContent = 'チャージが成功しました！';
+      errorDiv.classList.remove('hidden');
+      modal.remove();
+      await fetchData();
+    } else {
+      const result = await response.json();
+      if(result.message == "Maximum balance is 20000 Tropo"){
+        window.alert('残高が20000トロポを超えるチャージはできません。');
+      }
+    }
+  } catch (e) {
+    errorDiv.textContent = 'エラー: ' + e.message;
+    errorDiv.classList.remove('hidden');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const chargeButton = document.querySelector('.charge-button button');
+  if (chargeButton) {
+    chargeButton.onclick = openChargeModal;
+    chargeButton.removeAttribute('onclick');
+  }
+});
+
+window.onload = function() {
+  startDataRefresh();
+  startCardInfoRefresh();
+  const savedPlayername = localStorage.getItem('playername');
+  const savedPassword = localStorage.getItem('password');
+  if (savedPlayername && savedPassword) {
+    document.getElementById('playername').value = savedPlayername;
+    document.getElementById('password').value = savedPassword;
+    login();
+  }
+  const savedImage = localStorage.getItem('toropassImage');
+  if (savedImage) {
+    const imageElem = document.querySelector('.toropassimage img');
+    if (imageElem) imageElem.src = savedImage;
+  }
+}
+function openMenuModal() {
+  if (document.querySelector('.menu-modal')) return;
+
+  const modal = document.createElement('div');
+  modal.className = 'modal menu-modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>TOROpassデザイン選択</h2>
+        <span class="close-modal">×</span>
+      </div>
+      <div class="modal-body">
+        <div class="modal-thumb" onclick="selectCardDesign('image/toropass.png')">
+          <img src="image/toropass.png" alt="toropass" />
+          <span>TOROpass</span>
+        </div>
+                <div class="modal-thumb" onclick="selectCardDesign('image/minupass.png')">
+          <img src="image/minupass.png" alt="tohoca" />
+          <span>Minupass</span>
+        </div>
+        <div class="modal-thumb" onclick="selectCardDesign('image/shakechanrupica.png')">
+          <img src="image/shakechanrupica.png" alt="shakechanrupica" />
+          <span>shakechanrupica</span>
+        </div>
+        <div class="modal-thumb" onclick="selectCardDesign('image/rupica.png')">
+          <img src="image/rupica.png" alt="Rupica" />
+          <span>Rupica</span>
+        </div>
+        <div class="modal-thumb" onclick="selectCardDesign('image/tohoca.png')">
+          <img src="image/tohoca.png" alt="tohoca" />
+          <span>TOHOCA</span>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('.close-modal').onclick = () => modal.remove();
+}
+
+function selectCardDesign(imagePath) {
+  localStorage.setItem('toropassImage', imagePath);
+  document.querySelector('.toropassimage img').src = imagePath;
+  document.querySelector('.menu-modal').remove();
+}
+
+</script>
 </html>
