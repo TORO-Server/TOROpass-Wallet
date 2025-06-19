@@ -55,7 +55,7 @@
   </div>
 </body>
 <script>
-const serverUrl = 'https://toropassproxy.s-salmon.net';
+const serverUrl = 'http://toropassproxy.s-salmon.net';
 
 async function fetchData() {
   const username = document.getElementById('playername').value.trim();
@@ -245,7 +245,12 @@ async function login() {
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    let result = null;
+    try {
+      result = await response.json();
+    } catch {
+      result = {};
+    }
 
     if (response.ok) {
       errorDiv.classList.add('hidden');
@@ -264,8 +269,8 @@ async function login() {
         await getCardInfo();
         localStorage.setItem('playername', playername);
         localStorage.setItem('password', password);
-        document.getElementById('playerIcon').src = `https://www.mc-heads.net/head/${playername}`;
         document.getElementById('playerName').textContent = `${playername}さん`;
+        document.getElementById('playerIcon').src = `https://www.mc-heads.net/head/${playername}`;
         return;
       }
 
