@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TOROpass Wallet</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="##eaeaf4">
 </head>
 <body>
 
@@ -336,11 +339,11 @@ async function getCardInfo() {
             break;
           case '2':
             passTitle.textContent = '通勤定期券';
-            passBalance.textContent = `${cardInfo.fromStation || ''}-${cardInfo.toStation || ''}`;
+            passBalance.textContent = `${cardInfo.routeStart || ''}-${cardInfo.routeEnd || ''}`;
             break;
           case '3':
             passTitle.textContent = '通学定期券';
-            passBalance.textContent = `${cardInfo.fromStation || ''}-${cardInfo.toStation || ''}`;
+            passBalance.textContent = `${cardInfo.routeStart || ''}-${cardInfo.routeEnd || ''}`;
             break;
           case '4':
             passTitle.textContent = 'フリーパス';
@@ -548,6 +551,14 @@ function selectCardDesign(imagePath) {
   localStorage.setItem('toropassImage', imagePath);
   document.querySelector('.toropassimage img').src = imagePath;
   document.querySelector('.menu-modal').remove();
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(reg => console.log('Service Worker registered:', reg))
+      .catch(err => console.log('Service Worker registration failed:', err));
+  });
 }
 
 </script>

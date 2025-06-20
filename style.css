@@ -1,7 +1,7 @@
 body {
   margin: 10px;
   font-family: "Helvetica Neue", Arial, sans-serif;
-  background: linear-gradient(135deg, #e9e9f3, #f7f7fa);
+  background: #eaeaf4;
   color: #222;
 }
 
@@ -57,6 +57,7 @@ body {
   padding: 5px;
   background-color: #f8f8f8;
   border-radius: 12px;
+  overflow: hidden;
 }
 .playerdata img{
   height: 50px;
@@ -72,11 +73,11 @@ body {
   margin-left: auto;
   margin-right: 5px;
   display: flex;
-  height: 95%;
+  height: 50px;
 }
 
 .logout button{
-  width: 100%;
+  width: 50px;
   padding: 10px;
   background-color: green;
   border: none;
