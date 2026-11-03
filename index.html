@@ -158,16 +158,18 @@ async function fetchData() {
 
       const card = document.createElement('div');
       card.className = 'history-card';
+      const safeIcon = ['image/Train.png', 'image/SetBalance.png', 'image/Charge.png', 'image/WriteCard.png', 'image/Shop.png'].includes(iconSrc) ? iconSrc : 'image/Train.png';
+      const escape = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       card.innerHTML = `
-        <img src="${iconSrc}" class="history-icon" alt="icon" />
+        <img src="${safeIcon}" class="history-icon" alt="icon" />
         <div class="history-details">
           <div class="history-header">
-            <div class="history-info">${label}${arrow}</div>
-            <div class="history-amount" style="color:${color}">${amount}</div>
+            <div class="history-info">${escape(label + arrow)}</div>
+            <div class="history-amount" style="color:${escape(color)}">${escape(amount)}</div>
           </div>
-          <div class="history-time">${time}</div>
+          <div class="history-time">${escape(time)}</div>
           <div class="history-balance">
-            残高:${transaction.balance}トロポ${distance !== null ? `  移動:${distance}ブロック` : ''}
+            残高:${escape(transaction.balance)}トロポ${distance !== null ? `  移動:${escape(distance)}ブロック` : ''}
           </div>
         </div>
       `;
@@ -262,8 +264,10 @@ async function login() {
       userinfo.classList.remove('hidden');
       await fetchData();
       await getCardInfo();
+      sessionStorage.setItem('playername', playername);
+      sessionStorage.setItem('password', password);
       localStorage.setItem('playername', playername);
-      localStorage.setItem('password', password);
+      localStorage.removeItem('password');
     } else {
       if (result.message === "Invalid charge amount") {
         errorDiv.classList.add('hidden');
@@ -271,8 +275,10 @@ async function login() {
         userinfo.classList.remove('hidden');
         await fetchData();
         await getCardInfo();
+        sessionStorage.setItem('playername', playername);
+        sessionStorage.setItem('password', password);
         localStorage.setItem('playername', playername);
-        localStorage.setItem('password', password);
+        localStorage.removeItem('password');
         document.getElementById('playerName').textContent = `${playername}さん`;
         document.getElementById('playerIcon').src = `https://www.mc-heads.net/head/${playername}`;
         return;
@@ -300,6 +306,8 @@ async function login() {
 async function logout() {
   localStorage.removeItem('playername');
   localStorage.removeItem('password');
+  sessionStorage.removeItem('playername');
+  sessionStorage.removeItem('password');
   window.location.reload();
 }
 
@@ -495,8 +503,9 @@ document.addEventListener('DOMContentLoaded', function() {
 window.onload = function() {
   startDataRefresh();
   startCardInfoRefresh();
-  const savedPlayername = localStorage.getItem('playername');
-  const savedPassword = localStorage.getItem('password');
+  localStorage.removeItem('password');
+  const savedPlayername = sessionStorage.getItem('playername') || localStorage.getItem('playername');
+  const savedPassword = sessionStorage.getItem('password');
   if (savedPlayername && savedPassword) {
     document.getElementById('playername').value = savedPlayername;
     document.getElementById('password').value = savedPassword;
