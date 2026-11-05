@@ -1,4 +1,4 @@
-const CACHE_NAME = 'toropass-cache-v1';
+const CACHE_NAME = 'toropass-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -20,15 +20,33 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
+  // 古い Wallet のページが残り続けないよう、新しい版をすぐに有効にする
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
 });
 
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
 self.addEventListener('fetch', event => {
+  const request = event.request;
+  // API など別オリジンへの要求はキャッシュを通さない
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  // ページは常に新しいものを取得し、オフラインのときだけキャッシュを使う
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match('/index.html')));
+    return;
+  }
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request);
+    caches.match(request).then(response => {
+      return response || fetch(request);
     })
   );
 });
