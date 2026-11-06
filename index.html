@@ -60,8 +60,38 @@
 <script>
 const serverUrl = 'https://toropassproxy.s-salmon.net';
 
+// 読み取り系APIのパスワードは X-TOROpass-Password ヘッダーだけで送る (URLには載せない)
+async function fetchWithPassword(path, password) {
+  const url = `${serverUrl}${path}`;
+  try {
+    return await fetch(url, { headers: { 'X-TOROpass-Password': password } });
+  } catch (e) {
+    // 経路がこのヘッダーを許可していないと、ブラウザの事前確認で失敗する。
+    // ここでパスワードなしに再送すると、読み取り認証が必須のサーバーでは 401 が返り、
+    // パスワードが無効だと誤認される。再送はせず通信エラーとして呼び出し側へ返す
+    // (呼び出し側は保存済みパスワードを消さず、通信エラーの文言を表示する)。
+    console.warn('X-TOROpass-Password ヘッダー付きの要求に失敗しました:', e.message);
+    throw new Error('サーバーへ接続できませんでした。通信経路の問題の可能性があります。しばらく待ってからお試しください。');
+  }
+}
+
+// パスワードが無効になったときはログイン画面へ戻す (定期更新も止まる)
+function showLoginAgain(message) {
+  sessionStorage.removeItem('password');
+  document.getElementById('password').value = '';
+  document.getElementById('userinfo').classList.add('hidden');
+  document.getElementById('login').classList.remove('hidden');
+  const errorDiv = document.getElementById('error');
+  errorDiv.textContent = message;
+  errorDiv.classList.remove('hidden');
+}
+
+const PASSWORD_INVALID_MESSAGE = 'パスワードが無効か、有効期限が切れています。Minecraftで/webchargeを実行して新しいパスワードを取得してください。';
+
+// 認証に失敗してログイン画面へ戻した場合は false を返す
 async function fetchData() {
   const username = document.getElementById('playername').value.trim();
+  const password = document.getElementById('password').value.trim();
   const errorDiv = document.getElementById('error');
   const historyBox = document.getElementById('historyBox');
   const balanceDisplay = document.getElementById('balance');
@@ -77,7 +107,12 @@ async function fetchData() {
   }
 
   try {
-    const response = await fetch(`${serverUrl}/api/history/${encodeURIComponent(username)}`);
+    const response = await fetchWithPassword(`/api/history/${encodeURIComponent(username)}`, password);
+    if (response.status === 401) {
+      showLoginAgain(PASSWORD_INVALID_MESSAGE);
+      return false;
+    }
+    if (response.status === 429) throw new Error('アクセスが集中しています。しばらく待ってからお試しください。');
     if (!response.ok) throw new Error('不明なプレイヤー または 履歴なし');
     const data = await response.json();
 
@@ -229,11 +264,23 @@ function startCardInfoRefresh() {
   }, 5000);
 }
 
+async function completeLogin(playername, password) {
+  document.getElementById('error').classList.add('hidden');
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('userinfo').classList.remove('hidden');
+  document.getElementById('playerName').textContent = `${playername}さん`;
+  document.getElementById('playerIcon').src = `https://www.mc-heads.net/head/${encodeURIComponent(playername)}`;
+  if (await fetchData() === false) return;
+  await getCardInfo();
+  sessionStorage.setItem('playername', playername);
+  sessionStorage.setItem('password', password);
+  localStorage.setItem('playername', playername);
+  localStorage.removeItem('password');
+}
+
 async function login() {
   const playername = document.getElementById('playername').value.trim();
   const password = document.getElementById('password').value.trim();
-  const userinfo = document.getElementById('userinfo');
-  const loginDiv = document.getElementById('login');
   const errorDiv = document.getElementById('error');
 
   if (!playername || !password) {
@@ -259,35 +306,19 @@ async function login() {
     }
 
     if (response.ok) {
-      errorDiv.classList.add('hidden');
-      loginDiv.classList.add('hidden');
-      userinfo.classList.remove('hidden');
-      await fetchData();
-      await getCardInfo();
-      sessionStorage.setItem('playername', playername);
-      sessionStorage.setItem('password', password);
-      localStorage.setItem('playername', playername);
-      localStorage.removeItem('password');
+      await completeLogin(playername, password);
     } else {
       if (result.message === "Invalid charge amount") {
-        errorDiv.classList.add('hidden');
-        loginDiv.classList.add('hidden');
-        userinfo.classList.remove('hidden');
-        await fetchData();
-        await getCardInfo();
-        sessionStorage.setItem('playername', playername);
-        sessionStorage.setItem('password', password);
-        localStorage.setItem('playername', playername);
-        localStorage.removeItem('password');
-        document.getElementById('playerName').textContent = `${playername}さん`;
-        document.getElementById('playerIcon').src = `https://www.mc-heads.net/head/${playername}`;
+        await completeLogin(playername, password);
         return;
       }
 
       if (response.status === 401) {
-        errorDiv.textContent = 'パスワードが違います。';
+        errorDiv.textContent = 'プレイヤー名またはパスワードが違います。パスワードの有効期限が切れた場合は、Minecraftで/webchargeを実行してください。';
       } else if (response.status === 404) {
         errorDiv.textContent = 'パスワードが設定されていないか、そのプレイヤーが見つかりません。';
+      } else if (response.status === 429) {
+        errorDiv.textContent = 'ログインの失敗が続いたため、しばらく利用できません。時間をおいてお試しください。';
       } else if (response.status === 400 && result.message) {
         errorDiv.textContent = result.message;
       } else {
@@ -314,7 +345,7 @@ async function logout() {
 async function question() {
   const errorDiv = document.getElementById('error');
   errorDiv.classList.remove('hidden');
-  errorDiv.textContent = 'Minecraftで/webchargeコマンドを入力するとパスワードを取得できます。';
+  errorDiv.textContent = 'Minecraftで/webchargeコマンドを入力するとパスワードを取得できます。パスワードには有効期限があります。';
   errorDiv.style.color = 'black';
 }
 
@@ -481,9 +512,16 @@ async function charge() {
       modal.remove();
       await fetchData();
     } else {
-      const result = await response.json();
-      if(result.message == "Maximum balance is 20000 Tropo"){
+      const result = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        modal.remove();
+        showLoginAgain(PASSWORD_INVALID_MESSAGE);
+      } else if (result.message == "Maximum balance is 20000 Tropo") {
         window.alert('残高が20000トロポを超えるチャージはできません。');
+      } else if (response.status === 403) {
+        window.alert('Walletからのチャージは現在利用できません。');
+      } else {
+        window.alert('チャージに失敗しました。時間をおいてお試しください。');
       }
     }
   } catch (e) {
