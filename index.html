@@ -66,10 +66,12 @@ async function fetchWithPassword(path, password) {
   try {
     return await fetch(url, { headers: { 'X-TOROpass-Password': password } });
   } catch (e) {
-    // 途中の経路がこのヘッダーを許可していないと、ブラウザの事前確認で失敗する。
-    // パスワードを必要としないサーバーならヘッダーなしで読めるので、もう一度だけ試す (パスワードは送らない)
+    // 経路がこのヘッダーを許可していないと、ブラウザの事前確認で失敗する。
+    // ここでパスワードなしに再送すると、読み取り認証が必須のサーバーでは 401 が返り、
+    // パスワードが無効だと誤認される。再送はせず通信エラーとして呼び出し側へ返す
+    // (呼び出し側は保存済みパスワードを消さず、通信エラーの文言を表示する)。
     console.warn('X-TOROpass-Password ヘッダー付きの要求に失敗しました:', e.message);
-    return await fetch(url);
+    throw new Error('サーバーへ接続できませんでした。通信経路の問題の可能性があります。しばらく待ってからお試しください。');
   }
 }
 
